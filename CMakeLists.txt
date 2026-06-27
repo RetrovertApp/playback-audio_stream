@@ -18,4 +18,5 @@ add_library(audio_stream_playback SHARED
     metadata.c
 )
 target_include_directories(audio_stream_playback PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(audio_stream_playback PRIVATE $<$<NOT:$<PLATFORM_ID:Windows>>:m>)
 rv_set_plugin_properties(audio_stream_playback)

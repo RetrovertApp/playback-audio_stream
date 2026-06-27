@@ -512,9 +512,67 @@ static void audio_stream_static_init(const RVService* service_api) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static uint32_t audio_stream_get_scope_data(void* user_data, int channel, float* buffer, uint32_t num_samples) {
+static bool audio_stream_get_structure(void* user_data, RVVizInfo* out) {
     AudioStreamData* data = (AudioStreamData*)user_data;
-    if (data == nullptr || data->decoder == nullptr || buffer == nullptr) {
+    if (data == NULL || data->decoder == NULL || out == NULL) {
+        return false;
+    }
+
+    uint32_t channels = data->decoder->channels;
+    if (channels > AS_SCOPE_MAX_CHANNELS)
+        channels = AS_SCOPE_MAX_CHANNELS;
+
+    out->caps = RVVizCaps_Scope;
+    out->scroll_mode = RVScrollMode_Synchronized;
+    out->pattern_channel_count = 0;
+    out->scope_channel_count = channels;
+    out->column_count = 0;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static uint32_t audio_stream_get_scope_channels(void* user_data, RVChannelDesc* out, uint32_t cap) {
+    AudioStreamData* data = (AudioStreamData*)user_data;
+    if (data == NULL || data->decoder == NULL || out == NULL)
+        return 0;
+
+    uint32_t channels = data->decoder->channels;
+    if (channels > AS_SCOPE_MAX_CHANNELS)
+        channels = AS_SCOPE_MAX_CHANNELS;
+    if (channels > cap)
+        channels = cap;
+
+    static const char* s_mono[] = { "Mono" };
+    static const char* s_stereo[] = { "Left", "Right" };
+    const char** src = (channels == 1) ? s_mono : s_stereo;
+    for (uint32_t i = 0; i < channels; i++) {
+        memset(out[i].name, 0, sizeof(out[i].name));
+        strncpy((char*)out[i].name, src[i], sizeof(out[i].name) - 1);
+        out[i].scope_width = 0;
+    }
+    return channels;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void audio_stream_set_scope_enabled(void* user_data, bool on) {
+    AudioStreamData* data = (AudioStreamData*)user_data;
+    if (data == NULL)
+        return;
+
+    if (on && !data->scope_enabled) {
+        memset(data->scope_buffer, 0, sizeof(data->scope_buffer));
+        memset(data->scope_write_pos, 0, sizeof(data->scope_write_pos));
+    }
+    data->scope_enabled = on;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static uint32_t audio_stream_get_scope_samples(void* user_data, int32_t channel, float* out, uint32_t cap) {
+    AudioStreamData* data = (AudioStreamData*)user_data;
+    if (data == NULL || data->decoder == NULL || out == NULL || !data->scope_enabled) {
         return 0;
     }
 
@@ -522,47 +580,18 @@ static uint32_t audio_stream_get_scope_data(void* user_data, int channel, float*
         return 0;
     }
 
-    if (!data->scope_enabled) {
-        memset(data->scope_buffer, 0, sizeof(data->scope_buffer));
-        memset(data->scope_write_pos, 0, sizeof(data->scope_write_pos));
-        data->scope_enabled = true;
-    }
-
-    if (num_samples > AS_SCOPE_BUFFER_SIZE) {
-        num_samples = AS_SCOPE_BUFFER_SIZE;
+    if (cap > AS_SCOPE_BUFFER_SIZE) {
+        cap = AS_SCOPE_BUFFER_SIZE;
     }
 
     uint32_t wp = data->scope_write_pos[channel];
-    uint32_t read_pos = (wp - num_samples) & AS_SCOPE_BUFFER_MASK;
-    for (uint32_t i = 0; i < num_samples; i++) {
-        buffer[i] = data->scope_buffer[channel][read_pos];
+    uint32_t read_pos = (wp - cap) & AS_SCOPE_BUFFER_MASK;
+    for (uint32_t i = 0; i < cap; i++) {
+        out[i] = data->scope_buffer[channel][read_pos];
         read_pos = (read_pos + 1) & AS_SCOPE_BUFFER_MASK;
     }
 
-    return num_samples;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-static uint32_t audio_stream_get_scope_channel_names(void* user_data, const char** names, uint32_t max_channels) {
-    AudioStreamData* data = (AudioStreamData*)user_data;
-    if (data == NULL || data->decoder == NULL)
-        return 0;
-
-    uint32_t channels = data->decoder->channels;
-    if (channels > AS_SCOPE_MAX_CHANNELS)
-        channels = AS_SCOPE_MAX_CHANNELS;
-    if (channels > max_channels)
-        channels = max_channels;
-
-    if (channels == 1) {
-        names[0] = "Mono";
-    } else {
-        names[0] = "Left";
-        if (channels > 1)
-            names[1] = "Right";
-    }
-    return channels;
+    return cap;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -584,14 +613,19 @@ static RVPlaybackPlugin g_audio_stream_plugin = {
     audio_stream_metadata,
     audio_stream_static_init,
     NULL, // settings_updated
-
-    // Tracker visualization API - not supported
-    NULL, // get_tracker_info
-    NULL, // get_pattern_cell
-    NULL, // get_pattern_num_rows
-    audio_stream_get_scope_data,
     NULL, // static_destroy
-    audio_stream_get_scope_channel_names,
+
+    // Visualization: scope-only (streaming audio, no pattern grid).
+    audio_stream_get_structure,
+    NULL, // get_columns
+    NULL, // get_pattern_channels
+    audio_stream_get_scope_channels,
+    NULL, // get_position
+    NULL, // get_channel_rows
+    NULL, // get_cells
+    audio_stream_set_scope_enabled,
+    audio_stream_get_scope_samples,
+    NULL, // get_vu
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
