@@ -10,6 +10,7 @@
 #define nullptr ((void*)0)
 #endif
 
+#define DR_WAV_NO_STDIO
 #define DR_WAV_IMPLEMENTATION
 #include "external/dr_wav.h"
 

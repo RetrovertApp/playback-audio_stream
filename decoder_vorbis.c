@@ -12,6 +12,7 @@
 
 // stb_vorbis configuration - no pushdata API, use only pulldata
 #define STB_VORBIS_NO_PUSHDATA_API
+#define STB_VORBIS_NO_STDIO
 #include "external/stb_vorbis.c"
 
 #include "decoder.h"

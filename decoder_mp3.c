@@ -10,6 +10,7 @@
 #define nullptr ((void*)0)
 #endif
 
+#define DR_MP3_NO_STDIO
 #define DR_MP3_IMPLEMENTATION
 #include "external/dr_mp3.h"
 
