@@ -289,7 +289,8 @@ static RVReadInfo audio_stream_read_data(void* user_data, RVReadData dest) {
     float* output = (float*)dest.channels_output;
 
     // Calculate max frames based on output buffer size and decoder channels
-    uint32_t max_frames = dest.channels_output_max_bytes_size / (sizeof(float) * decoder->channels);
+    uint32_t capacity_frames = dest.channels_output_max_bytes_size / (sizeof(float) * decoder->channels);
+    uint32_t max_frames = dest.info.frame_count < capacity_frames ? dest.info.frame_count : capacity_frames;
 
     // Read frames from decoder
     uint64_t frames_read = decoder->read_frames(decoder->decoder_data, output, max_frames);

@@ -1,0 +1,9 @@
+[plugin]
+name = "audio_stream"
+
+[data]
+entries = []
+
+[[fixtures]]
+file = "fixtures/fixture_tone_15s.ogg"
+sha256 = "0223713a415f2b32cd0d6b31cb67b93a2835e3001c115c127dc3c9db534977fd"
